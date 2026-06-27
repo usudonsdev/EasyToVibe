@@ -1,10 +1,15 @@
 {
   "name": "code-bundler",
   "displayName": "Code Bundler for AI",
+  "publisher": "usudonsdev",
   "description": "ソースコードをAIに渡しやすいMarkdown形式でクリップボードにコピーします",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.80.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/usudonsdev/EasyToVibe.git"
   },
   "categories": [
     "Other"
@@ -18,5 +23,8 @@
         "title": "AI用: プロジェクトの全コードをコピー"
       }
     ]
+  },
+  "dependencies": {
+    "@vscode/vsce": "^3.9.2"
   }
 }
