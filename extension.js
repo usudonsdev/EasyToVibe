@@ -1,26 +1,25 @@
 const vscode = require('vscode');
 const fs = require('fs');
+const fsPromises = require('fs').promises; // 非同期用のプロミス API を導入
 const path = require('path');
-const ignore = require('ignore'); // インストールしたライブラリ
+const ignore = require('ignore');
 
-// ツリー構造には出すが、ファイルの中身を絶対に読み込まない（ソースコード出力から除外する）ディレクトリ
 const CONTENT_SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.venv', 'venv', 'markdowns']);
-
-// テキストとして読み込む対象の拡張子
 const VALID_EXTENSIONS = new Set(['.py', '.c', '.h', '.java', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.json', '.md', '.yml', '.yaml']);
 
 /**
  * ワークスペースの .gitignore を読み込んで ignore インスタンスを返す
+ * (ここは起動時に一度だけ、または同期でも軽量なため、呼び出しをスムーズにするため今回はそのままか、あるいは非同期化します)
  */
-function getGitignoreFilter(workspaceRoot) {
+async function getGitignoreFilter(workspaceRoot) {
     const ig = ignore();
-    // デフォルトで除外したい共通のメタフォルダを指定
     ig.add(['.git', 'markdowns']); 
     
     const gitignorePath = path.join(workspaceRoot, '.gitignore');
     if (fs.existsSync(gitignorePath)) {
         try {
-            const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
+            // 非同期読み込みに変更
+            const gitignoreContent = await fsPromises.readFile(gitignorePath, 'utf-8');
             ig.add(gitignoreContent);
         } catch (e) {
             console.error('.gitignore の読み込みに失敗しました:', e);
@@ -30,99 +29,103 @@ function getGitignoreFilter(workspaceRoot) {
 }
 
 /**
- * ディレクトリ構造（ツリー）を生成する（.gitignoreにヒットするものは除外）
+ * ディレクトリ構造（ツリー）を生成する（非同期版）
  */
-function generateTree(dirPath, workspaceRoot, ig, prefix = "") {
+async function generateTree(dirPath, workspaceRoot, ig, prefix = "") {
     let treeStr = "";
     if (!fs.existsSync(dirPath)) return treeStr;
 
-    const files = fs.readdirSync(dirPath).sort();
+    // 非同期でディレクトリを読み込み
+    const files = await fsPromises.readdir(dirPath);
+    files.sort();
 
-    // .gitignore のルールに適合するものをフィルタリング
-    const filtered = files.filter(file => {
+    // フィルタリング処理の非同期対応
+    const filtered = [];
+    for (const file of files) {
         const fullPath = path.join(dirPath, file);
         const relativePath = path.relative(workspaceRoot, fullPath);
         
-        // ignore ライブラリはディレクトリの場合末尾に '/' が必要
-        const isDir = fs.statSync(fullPath).isDirectory();
+        const stats = await fsPromises.stat(fullPath);
+        const isDir = stats.isDirectory();
         const checkPath = isDir ? `${relativePath}/` : relativePath;
         
-        return !ig.ignores(checkPath);
-    });
+        if (!ig.ignores(checkPath)) {
+            filtered.push({ file, fullPath, isDir });
+        }
+    }
 
-    filtered.forEach((file, i) => {
+    for (let i = 0; i < filtered.length; i++) {
+        const item = filtered[i];
         const isLast = i === filtered.length - 1;
         const connector = isLast ? "└── " : "├── ";
-        const fullPath = path.join(dirPath, file);
-        const stats = fs.statSync(fullPath);
 
-        if (stats.isDirectory()) {
-            treeStr += `${prefix}${connector}${file}/\n`;
-            // もし node_modules などであれば、ツリーには出すが配下の走査はスキップする（あるいは簡略化）
-            if (CONTENT_SKIP_DIRS.has(file)) {
+        if (item.isDir) {
+            treeStr += `${prefix}${connector}${item.file}/\n`;
+            if (CONTENT_SKIP_DIRS.has(item.file)) {
                 treeStr += `${prefix}${isLast ? "    " : "│   "}└── (...contents skipped...)\n`;
             } else {
                 const newPrefix = prefix + (isLast ? "    " : "│   ");
-                treeStr += generateTree(fullPath, workspaceRoot, ig, newPrefix);
+                // 再帰呼び出しも await
+                treeStr += await generateTree(item.fullPath, workspaceRoot, ig, newPrefix);
             }
         } else {
-            if (VALID_EXTENSIONS.has(path.extname(file))) {
-                treeStr += `${prefix}${connector}${file}\n`;
+            if (VALID_EXTENSIONS.has(path.extname(item.file))) {
+                treeStr += `${prefix}${connector}${item.file}\n`;
             }
         }
-    });
+    }
     return treeStr;
 }
 
 /**
- * ソースコードの中身をまとめる（.gitignore対象、およびCONTENT_SKIP_DIRS対象は除外）
+ * ソースコードの中身をまとめる（非同期版）
  */
-function bundleCode(workspaceRoot) {
+async function bundleCode(workspaceRoot) {
     const rootName = path.basename(workspaceRoot);
-    const ig = getGitignoreFilter(workspaceRoot);
+    const ig = await getGitignoreFilter(workspaceRoot);
 
     let markdown = `# Project Context: ${rootName}\n\n## Directory Structure\n\`\`\`text\n${rootName}/\n`;
-    markdown += generateTree(workspaceRoot, workspaceRoot, ig);
+    markdown += await generateTree(workspaceRoot, workspaceRoot, ig);
     markdown += `\`\`\`\n\n## Source Code Files\n\n`;
 
-    function walk(currentDir) {
+    async function walk(currentDir) {
         if (!fs.existsSync(currentDir)) return;
-        const files = fs.readdirSync(currentDir);
+        const files = await fsPromises.readdir(currentDir);
 
-        files.forEach(file => {
+        for (const file of files) {
             const fullPath = path.join(currentDir, file);
             const relativePath = path.relative(workspaceRoot, fullPath);
-            // 変更前: const stats = stats = fs.statSync(fullPath);
-            const stats = fs.statSync(fullPath); 
+            
+            const stats = await fsPromises.stat(fullPath); 
             const isDir = stats.isDirectory();
             const checkPath = isDir ? `${relativePath}/` : relativePath;
 
-            if (ig.ignores(checkPath)) return;
+            if (ig.ignores(checkPath)) continue;
 
             if (isDir) {
-                if (CONTENT_SKIP_DIRS.has(file)) return;
-                walk(fullPath);
+                if (CONTENT_SKIP_DIRS.has(file)) continue;
+                await walk(fullPath);
             } else {
                 if (VALID_EXTENSIONS.has(path.extname(file))) {
                     const lang = path.extname(file).slice(1);
                     markdown += `### File: \`${relativePath}\`\n\`\`\`${lang}\n`;
                     try {
-                        markdown += fs.readFileSync(fullPath, 'utf-8');
+                        // 非同期読み込みに変更
+                        markdown += await fsPromises.readFile(fullPath, 'utf-8');
                     } catch (e) {
                         markdown += `// Error reading file: ${e.message}\n`;
                     }
                     markdown += `\n\`\`\`\n\n`;
                 }
             }
-        });
+        }
     }
 
-    walk(workspaceRoot);
+    await walk(workspaceRoot);
     return markdown;
 }
 
 function activate(context) {
-    // 変更前: 'code-bundler.copyContext'
     let disposable = vscode.commands.registerCommand('easy-to-vibe.copyContext', async function () {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
@@ -131,13 +134,14 @@ function activate(context) {
         }
 
         const rootPath = workspaceFolders[0].uri.fsPath;
-        vscode.window.showInformationMessage('プロジェクトをスキャン中（.gitignore適用）...');
+        vscode.window.showInformationMessage('プロジェクトをスキャン中（.gitignore適用・非同期モード）...');
         
-        const markdownResult = bundleCode(rootPath);
+        // 非同期処理を await で受ける
+        const markdownResult = await bundleCode(rootPath);
         
         const outputDir = path.join(rootPath, 'markdowns');
         if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
+            await fsPromises.mkdir(outputDir, { recursive: true });
         }
         
         const now = new Date();
@@ -152,7 +156,8 @@ function activate(context) {
         const outputFilePath = path.join(outputDir, outputFileName);
         
         try {
-            fs.writeFileSync(outputFilePath, markdownResult, 'utf-8');
+            // 非同期書き込みに変更
+            await fsPromises.writeFile(outputFilePath, markdownResult, 'utf-8');
             vscode.window.showInformationMessage(`ファイルを保存しました: markdowns/${outputFileName}`);
             
             const document = await vscode.workspace.openTextDocument(outputFilePath);
