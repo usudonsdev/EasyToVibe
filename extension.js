@@ -137,7 +137,8 @@ async function bundleCode(workspaceRoot) {
 }
 
 function activate(context) {
-    let disposable = vscode.commands.registerCommand('easy-to-vibe.copyContext', async function () {
+    // 🛠️ 修正：package.json の定義に合わせて 'code-bundler.copyContext' に変更！
+    let disposable = vscode.commands.registerCommand('code-bundler.copyContext', async function () {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
             vscode.window.showErrorMessage('ワークスペースが開かれていません。');
@@ -149,7 +150,7 @@ function activate(context) {
         // vscode.window.withProgress を使って画面右下にプログレスバーを表示
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: "EasyToVibe 🌊",
+            title: "Code Bundler 🌊", // タイトルも親しみやすく合わせておくね！
             cancellable: false
         }, async (progress) => {
             
