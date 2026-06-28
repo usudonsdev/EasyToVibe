@@ -48,6 +48,7 @@ async function generateTree(dirPath, workspaceRoot, ig, prefix = "") {
         const fullPath = path.join(dirPath, file);
         const relativePath = path.relative(workspaceRoot, fullPath);
         
+        // 🛠️ 修正：ここを同期版の fs.statSync から await fsPromises.stat に修正！
         const stats = await fsPromises.stat(fullPath);
         const isDir = stats.isDirectory();
         const checkPath = isDir ? `${relativePath}/` : relativePath;
@@ -100,6 +101,7 @@ async function bundleCode(workspaceRoot) {
             const fullPath = path.join(currentDir, file);
             const relativePath = path.relative(workspaceRoot, fullPath);
             
+            // 🛠️ 修正：ここも念のため完全に fsPromises.stat に統一
             const stats = await fsPromises.stat(fullPath); 
             const isDir = stats.isDirectory();
             const checkPath = isDir ? `${relativePath}/` : relativePath;
