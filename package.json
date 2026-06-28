@@ -3,7 +3,7 @@
   "displayName": "Code Bundler for AI",
   "publisher": "usudonsdev",
   "description": "ソースコードをAIに渡しやすいMarkdown形式でクリップボードにコピーします",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "engines": {
     "vscode": "^1.80.0"
   },
