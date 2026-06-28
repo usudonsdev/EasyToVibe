@@ -92,24 +92,17 @@ function bundleCode(workspaceRoot) {
         files.forEach(file => {
             const fullPath = path.join(currentDir, file);
             const relativePath = path.relative(workspaceRoot, fullPath);
-            const stats = fs.statSync(fullPath);
-            
+            // 変更前: const stats = stats = fs.statSync(fullPath);
+            const stats = fs.statSync(fullPath); 
             const isDir = stats.isDirectory();
             const checkPath = isDir ? `${relativePath}/` : relativePath;
 
-            // 1. .gitignore に該当する場合は完全にスキップ
-            if (ig.ignores(checkPath)) {
-                return;
-            }
+            if (ig.ignores(checkPath)) return;
 
             if (isDir) {
-                // 2. node_modules などの特定ディレクトリは中身のソースコード出力からは除外
-                if (CONTENT_SKIP_DIRS.has(file)) {
-                    return;
-                }
+                if (CONTENT_SKIP_DIRS.has(file)) return;
                 walk(fullPath);
             } else {
-                // 3. 自分が作成した主要なソースコードファイルのみを対象にする
                 if (VALID_EXTENSIONS.has(path.extname(file))) {
                     const lang = path.extname(file).slice(1);
                     markdown += `### File: \`${relativePath}\`\n\`\`\`${lang}\n`;
@@ -129,7 +122,8 @@ function bundleCode(workspaceRoot) {
 }
 
 function activate(context) {
-    let disposable = vscode.commands.registerCommand('code-bundler.copyContext', async function () {
+    // 変更前: 'code-bundler.copyContext'
+    let disposable = vscode.commands.registerCommand('easy-to-vibe.copyContext', async function () {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
             vscode.window.showErrorMessage('ワークスペースが開かれていません。');
