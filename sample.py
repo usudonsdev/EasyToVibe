@@ -1,7 +1,5 @@
-print("Hello, World! hahaha")
-print(f)
-print(a)
 print(b)
-print(c)
 print(d)
-print(e)
+print(f)
+
+print(h)
