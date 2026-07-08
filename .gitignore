@@ -1,1 +1,7 @@
 node_modules
+.env
+.microgit_shadow/
+.microgit_logs/
+
+.microgit_shadow/
+.microgit_logs/
