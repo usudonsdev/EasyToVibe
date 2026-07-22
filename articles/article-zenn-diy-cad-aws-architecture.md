@@ -3,7 +3,7 @@ title: "DIY CAD の実行環境を Raspberry Pi から Fargate に移した話"
 emoji: "📐"
 type: "tech"
 topics: ["aws", "lambda", "bedrock", "amplify", "fargate"]
-published: false
+published: true
 ---
 
 ## はじめに
