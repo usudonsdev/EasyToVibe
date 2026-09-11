@@ -3,7 +3,7 @@ title: "無料AIエージェントについて考える —— GitHub Copilot完
 emoji: "🌊"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["vscode", "gemini", "ai", "ペアプログラミング", "個人開発"]
-published: true
+published: false
 ---
 
 こんにちは、開発者の臼丼（@usudonsdev）です。
